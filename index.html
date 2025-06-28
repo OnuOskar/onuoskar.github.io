@@ -232,12 +232,6 @@ function render(mangaData) {
   updateCounter();
 }
 
-titleSwitch.addEventListener('change', () => {
-  const hideJapanese = titleSwitch.checked;
-  document.querySelectorAll('.title-native').forEach(el => {
-    el.style.display = hideJapanese ? 'none' : 'block';
-  });
-});
 
 // Initialize with Japanese titles visible
 document.addEventListener('DOMContentLoaded', () => {
