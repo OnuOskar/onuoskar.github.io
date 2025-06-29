@@ -6,52 +6,55 @@
 <title>Yuri Manga Grid</title>
 <style>
   body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 1rem;
-    background: #f8f9fa;
-    color: #222;
+    background: #f5f7fa;
+    color: #2d3748;
   }
+  .hide-for-capture {
+  display: none !important;
+}
   #controls {
     display: flex;
     align-items: center;
     gap: 1rem;
     margin-bottom: 1rem;
+    padding: 0.8rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   }
   #counter {
-    font-weight: bold;
-  }
-  #titleSwitchLabel {
-    cursor: pointer;
-    user-select: none;
+    font-weight: 600;
+    margin-right: auto;
+    color: #4a5568;
   }
   #container {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
     max-width: 100vw;
     overflow-x: hidden;
   }
   .year-group {
     display: flex;
     align-items: flex-start;
-    gap: 1rem;
   }
   .year-title {
     font-size: 1.2rem;
-    font-weight: bold;
+    font-weight: 600;
     min-width: 3.5rem;
     padding-top: 0.5rem;
+    color: #2b6cb0;
   }
   .grid {
     display: grid;
     grid-template-columns: repeat(16, 1fr);
-    gap: 0.5rem;
     flex-grow: 1;
   }
   .manga-card {
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgb(0 0 0 / 0.1);
+    border-radius: 4px;
+    border: 1px solid #e2e8f0;
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -59,27 +62,33 @@
     justify-content: space-between;
     user-select: none;
     aspect-ratio: 1 / 1;
-    padding: 0.5rem;
+    padding: 0.25rem;
     box-sizing: border-box;
-    transition: background-color 0.2s ease;
+    transition: all 0.15s ease;
     overflow: hidden;
     text-align: center;
   }
 
+  .manga-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
   .manga-card.read {
-    background: #008639;
+    background: #e6fffa;
+    border-color: #81e6d9;
   }
 
   .manga-cover {
     width: 100%;
     height: auto;
     object-fit: cover;
-    border-radius: 6px;
     aspect-ratio: 1 / 1;
+    border-radius: 3px;
   }
 
   .title-romaji, .title-native {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     line-height: 1.1;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -88,37 +97,31 @@
   }
 
   .title-romaji {
-    font-weight: bold;
-    margin-bottom: 0.25rem;
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+    color: #2d3748;
   }
 
   .title-native {
     font-style: italic;
-    color: #555;
-    margin-top: 0.25rem;
+    color: #718096;
+    margin-top: 0.15rem;
   }
 
-  .cover-link {
-    width: 100%;
-    display: block;
-  }
-
-  a {
-    text-decoration: none;
-    color: inherit;
-  }
   button#downloadBtn {
     padding: 0.4rem 1rem;
-    font-size: 1rem;
+    font-size: 0.95rem;
     border: none;
-    background-color: #3182ce;
+    background-color: #4299e1;
     color: white;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.15s;
+    font-weight: 500;
   }
   button#downloadBtn:hover {
-    background-color: #2c5282;
+    background-color: #3182ce;
+    transform: translateY(-1px);
   }
 </style>
 </head>
@@ -126,10 +129,6 @@
 
 <div id="controls">
   <div id="counter">Loading manga...</div>
-   <label id="titleSwitchLabel">
-    <input type="checkbox" id="titleSwitch" />
-    Use desktop view on mobile
-   </label>
   <button id="downloadBtn">Download Results as Image</button>
 </div>
 
@@ -139,14 +138,13 @@
 <script>
 const container = document.getElementById('container');
 const counterEl = document.getElementById('counter');
-const titleSwitch = document.getElementById('titleSwitch');
 const downloadBtn = document.getElementById('downloadBtn');
 
 let readSet = new Set(JSON.parse(localStorage.getItem('readManga') || "[]"));
 let totalMangaCount = 0;
 
 function updateCounter() {
-  counterEl.textContent = `User has read ${readSet.size} / ${totalMangaCount} manga`;
+  counterEl.textContent = `Read: ${readSet.size} / ${totalMangaCount} manga`;
 }
 
 function createMangaCard(manga) {
@@ -154,9 +152,8 @@ function createMangaCard(manga) {
   card.className = 'manga-card';
   if (readSet.has(manga.id)) card.classList.add('read');
 
-  // Toggle read/unread on full card click (including image)
   card.addEventListener('click', (e) => {
-    if (e.ctrlKey || e.metaKey || e.button === 1) return; // allow ctrl/middle click to open link
+    if (e.ctrlKey || e.metaKey || e.button === 1) return;
     e.preventDefault();
     if (readSet.has(manga.id)) {
       readSet.delete(manga.id);
@@ -187,10 +184,8 @@ function createMangaCard(manga) {
   link.href = manga.siteUrl;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  link.className = 'cover-link';
   link.addEventListener('click', (e) => {
     if (!(e.ctrlKey || e.metaKey || e.button === 1)) {
-      // prevent redirect unless ctrl/meta/middle-click
       e.preventDefault();
     }
   });
@@ -235,45 +230,47 @@ function render(mangaData) {
   }
   updateCounter();
 }
-  
-titleSwitch.addEventListener('change', () => {
-  const hideJapanese = titleSwitch.checked;
-  document.querySelectorAll('.title-native').forEach(el => {
-    el.style.display = hideJapanese ? 'none' : 'block';
-  });
-});
-
-// Initialize with Japanese titles visible
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.title-native').forEach(el => {
-    el.style.display = 'block';
-  });
-});
 
 downloadBtn.addEventListener('click', () => {
-  container.style.pointerEvents = 'none';
-  html2canvas(container, {
+  // Clone the controls without the download button
+  const controlsClone = document.getElementById('controls').cloneNode(true);
+  controlsClone.querySelector('#downloadBtn').classList.add('hide-for-capture');
+  
+  // Create wrapper and add elements
+  const wrapper = document.createElement('div');
+  wrapper.appendChild(controlsClone);
+  wrapper.appendChild(container.cloneNode(true));
+  
+  // Temporarily add to body
+  document.body.appendChild(wrapper);
+  
+  // Hide original elements during capture
+  const originalVisibility = container.style.visibility;
+  container.style.visibility = 'hidden';
+  
+  html2canvas(wrapper, {
     scale: 2,
-    scrollY: -window.scrollY,
-    scrollX: -window.scrollX,
     useCORS: true,
     allowTaint: false
   }).then(canvas => {
-    container.style.pointerEvents = '';
+    // Clean up
+    document.body.removeChild(wrapper);
+    container.style.visibility = originalVisibility;
+    
     canvas.toBlob(blob => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'yuri_manga_results.png';
+      a.download = 'yuri-manga-collection.png';
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     });
   }).catch(err => {
-    container.style.pointerEvents = '';
-    alert('Failed to generate image.');
-    console.error(err);
+    document.body.removeChild(wrapper);
+    container.style.visibility = originalVisibility;
+    console.error('Error generating image:', err);
   });
 });
 
