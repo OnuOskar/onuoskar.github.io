@@ -68,6 +68,28 @@
     overflow: hidden;
     text-align: center;
   }
+  .cover-wrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}
+
+.cover-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 175, 44, 0); /* default: no overlay */
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+  pointer-events: none;
+}
+
+.manga-card.read .cover-overlay {
+  background-color: rgba(0, 175, 44, 0.1); /* semi-transparent black overlay */
+}
+
 
   .manga-card:hover {
     transform: translateY(-1px);
@@ -170,26 +192,35 @@ function createMangaCard(manga) {
   romaji.className = 'title-romaji';
   romaji.textContent = manga.romajiTitle;
 
-  const img = document.createElement('img');
-  img.src = manga.coverImage;
-  img.alt = manga.romajiTitle;
-  img.className = 'manga-cover';
-  img.crossOrigin = "anonymous";
+const overlayWrapper = document.createElement('div');
+overlayWrapper.className = 'cover-wrapper';
+
+const img = document.createElement('img');
+img.src = manga.coverImage;
+img.alt = manga.romajiTitle;
+img.className = 'manga-cover';
+img.crossOrigin = "anonymous";
+
+const overlay = document.createElement('div');
+overlay.className = 'cover-overlay';
+
+overlayWrapper.appendChild(img);
+overlayWrapper.appendChild(overlay);
+
+const link = document.createElement('a');
+link.href = manga.siteUrl;
+link.target = "_blank";
+link.rel = "noopener noreferrer";
+link.addEventListener('click', (e) => {
+  if (!(e.ctrlKey || e.metaKey || e.button === 1)) {
+    e.preventDefault();
+  }
+});
+link.appendChild(overlayWrapper);
 
   const native = document.createElement('div');
   native.className = 'title-native';
   native.textContent = manga.nativeTitle;
-
-  const link = document.createElement('a');
-  link.href = manga.siteUrl;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.addEventListener('click', (e) => {
-    if (!(e.ctrlKey || e.metaKey || e.button === 1)) {
-      e.preventDefault();
-    }
-  });
-  link.appendChild(img);
 
   card.appendChild(romaji);
   card.appendChild(link);
