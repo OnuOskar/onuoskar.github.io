@@ -165,7 +165,9 @@ const orbitAngles = [0, 47, 91, 133, 174, 213, 250, 285, 318];
 const orbitDistances = [142, 135, 131, 127, 125, 123, 121, 119, 119];
 const circles = [];
 let selectedIndex = 0;
-
+const containerSize = 600; // container width/height
+const maxOrbit = Math.max(...orbitDistances) + Math.max(...sizes)/2;
+const scaleMultiplier = (containerSize * 0.9) / (maxOrbit * 2);
 // CACHE MUST BE INITIALIZED AFTER CIRCLES ARE CREATED
 const circleCache = [];
 function saveCacheToCookie() {
@@ -189,11 +191,15 @@ function loadCacheFromCookie() {
 }
 
 function createCircle(size, x, y) {
+  const scaledSize = size * scaleMultiplier;
+  const scaledX = center.x + (x - center.x) * scaleMultiplier;
+  const scaledY = center.y + (y - center.y) * scaleMultiplier;
+
   const c = document.createElement("div");
   c.className = "circle";
-  c.style.width = c.style.height = size + "px";
-  c.style.left = (x - size / 2) + "px";
-  c.style.top = (y - size / 2) + "px";
+  c.style.width = c.style.height = scaledSize + "px";
+  c.style.left = (scaledX - scaledSize / 2) + "px";
+  c.style.top = (scaledY - scaledSize / 2) + "px";
 
   const title = document.createElement("div");
   title.className = "title";
@@ -202,7 +208,6 @@ function createCircle(size, x, y) {
   container.appendChild(c);
   circles.push(c);
 
-  // Initialize cache
   circleCache.push({ imgSrc: null, title: "", scale: 1, left: 0, top: 0 });
 
   c.onclick = () => selectCircle(circles.indexOf(c));
@@ -346,6 +351,9 @@ function placeImage(src, titleText) {
   circleCache[selectedIndex].top = 0;
   renderCircle(selectedIndex);
   saveCacheToCookie(); // Save when placing new image
+  // Move to next circle automatically
+  const nextIndex = selectedIndex + 1;
+  if (nextIndex < circles.length) selectCircle(nextIndex);
 }
 // Download
 document.getElementById("download").onclick = async () => {
