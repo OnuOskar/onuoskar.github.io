@@ -167,7 +167,7 @@ const circles = [];
 let selectedIndex = 0;
 const containerSize = 600; // container width/height
 const maxOrbit = Math.max(...orbitDistances) + Math.max(...sizes)/2;
-const scaleMultiplier = (containerSize * 0.9) / (maxOrbit * 2);
+const scaleMultiplier = (containerSize * 1) / (maxOrbit * 2);
 // CACHE MUST BE INITIALIZED AFTER CIRCLES ARE CREATED
 const circleCache = [];
 function saveCacheToCookie() {
