@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>AniList Circle Layout</title>
+
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui, sans-serif;
+    background: #0e0e11;
+    color: #fff;
+    display: flex;
+    height: 100vh;
+  }
+
+  #stage {
+    flex: 1;
+    display: grid;
+    place-items: center;
+  }
+
+  #circle-container {
+    position: relative;
+    width: 600px;
+    height: 600px;
+  }
+
+  .circle {
+    position: absolute;
+    border-radius: 50%;
+    overflow: hidden;
+    background: #1a1a22;
+    border: 2px solid #333;
+    cursor: pointer;
+  }
+
+  .circle.selected {
+    border-color: #7aa2ff;
+  }
+
+  .circle img {
+    position: absolute;
+    user-select: none;
+    cursor: grab;
+    pointer-events: auto;
+  }
+
+  .title {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 6px 8px;
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(2px);
+    box-sizing: border-box;
+    word-break: break-word;
+    display: none;
+    white-space: pre-wrap;
+  }
+
+  .circle.show-title .title {
+    display: block;
+  }
+
+  #panel {
+    width: 320px;
+    background: #14141a;
+    padding: 12px;
+    border-left: 1px solid #222;
+    overflow-y: auto;
+  }
+
+  input, select, button, label {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  input, select {
+    padding: 6px;
+    background: #0e0e11;
+    color: #fff;
+    border: 1px solid #333;
+  }
+
+  button {
+    padding: 8px;
+    background: #7aa2ff;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  label {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 14px;
+  }
+
+  .result {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    cursor: pointer;
+    border-bottom: 1px solid #222;
+  }
+
+  .result:hover {
+    background: #1a1a22;
+  }
+
+  .result img {
+    width: 40px;
+    height: 56px;
+    object-fit: cover;
+  }
+</style>
+</head>
+
+<body>
+
+<div id="stage">
+  <div id="circle-container"></div>
+</div>
+
+<div id="panel">
+  <select id="type">
+    <option value="ANIME">Anime</option>
+    <option value="MANGA">Manga</option>
+  </select>
+
+  <input id="search" placeholder="Search AniList…" autocomplete="off" />
+
+  <label>
+    <input type="checkbox" id="toggleTitles" />
+    Show titles on circles
+  </label>
+
+  <button id="download">Download Image</button>
+<div style="display:flex; gap:8px; margin-bottom:8px;">
+  <button id="prevImage">← Previous</button>
+  <button id="nextImage">Next →</button>
+</div>
+
+  <div id="results"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+const container = document.getElementById("circle-container");
+const resultsEl = document.getElementById("results");
+const searchInput = document.getElementById("search");
+searchInput.value = "";
+resultsEl.innerHTML = "";
+
+const center = { x: 300, y: 300 };
+const sizes = [160, 113, 96, 88, 82, 77, 74, 70, 65, 62];
+const orbitAngles = [0, 47, 91, 133, 174, 213, 250, 285, 318];
+const orbitDistances = [142, 135, 131, 127, 125, 123, 121, 119, 119];
+const circles = [];
+let selectedIndex = 0;
+
+// CACHE MUST BE INITIALIZED AFTER CIRCLES ARE CREATED
+const circleCache = [];
+function saveCacheToCookie() {
+  const json = encodeURIComponent(JSON.stringify(circleCache));
+  document.cookie = `circleCache=${json}; max-age=${60*60*24*365}; path=/`; // 1 year
+}
+
+function loadCacheFromCookie() {
+  const match = document.cookie.match(/circleCache=([^;]+)/);
+  if (!match) return;
+  try {
+    const data = JSON.parse(decodeURIComponent(match[1]));
+    if (Array.isArray(data)) {
+      data.forEach((item, i) => {
+        if (circleCache[i]) {
+          circleCache[i] = item;
+        }
+      });
+    }
+  } catch (e) { console.warn("Failed to load cache:", e); }
+}
+
+function createCircle(size, x, y) {
+  const c = document.createElement("div");
+  c.className = "circle";
+  c.style.width = c.style.height = size + "px";
+  c.style.left = (x - size / 2) + "px";
+  c.style.top = (y - size / 2) + "px";
+
+  const title = document.createElement("div");
+  title.className = "title";
+  c.appendChild(title);
+
+  container.appendChild(c);
+  circles.push(c);
+
+  // Initialize cache
+  circleCache.push({ imgSrc: null, title: "", scale: 1, left: 0, top: 0 });
+
+  c.onclick = () => selectCircle(circles.indexOf(c));
+}
+
+// Create circles
+createCircle(sizes[0], center.x, center.y);
+for (let i = 1; i < sizes.length; i++) {
+  const angleRad = (orbitAngles[i-1] * Math.PI) / 180;
+  const x = center.x + Math.cos(angleRad) * orbitDistances[i-1];
+  const y = center.y + Math.sin(angleRad) * orbitDistances[i-1];
+  createCircle(sizes[i], x, y);
+}
+
+// Swap images between circles
+function swapImages(newIndex) {
+  if (newIndex < 0 || newIndex >= circles.length) return;
+
+  // Swap caches
+  [circleCache[selectedIndex], circleCache[newIndex]] = [circleCache[newIndex], circleCache[selectedIndex]];
+
+  // Re-render both circles
+  renderCircle(selectedIndex);
+  renderCircle(newIndex);
+
+  selectCircle(newIndex);
+}
+
+// Render circle from cache
+function renderCircle(i) {
+  const circle = circles[i];
+  const cache = circleCache[i];
+
+  circle.querySelector("img")?.remove();
+  circle.querySelector(".title").textContent = cache.title;
+
+  if (cache.imgSrc) {
+    const img = document.createElement("img");
+    img.src = cache.imgSrc;
+    img.crossOrigin = "anonymous";
+    img.draggable = false;
+
+    let scale = cache.scale, left = cache.left, top = cache.top;
+
+    img.onload = () => {
+      const ratio = img.naturalWidth / img.naturalHeight;
+      if (ratio > 1) { img.style.height = "100%"; img.style.width = "auto"; }
+      else { img.style.width = "100%"; img.style.height = "auto"; }
+      update();
+    };
+
+    function clamp() {
+      const rect = img.getBoundingClientRect();
+      const cRect = circle.getBoundingClientRect();
+      const maxX = Math.max(0, (rect.width - cRect.width) / 2);
+      const maxY = Math.max(0, (rect.height - cRect.height) / 2);
+      left = Math.min(maxX, Math.max(-maxX, left));
+      top = Math.min(maxY, Math.max(-maxY, top));
+    }
+
+    function update() {
+      img.style.transform = `translate(${left}px, ${top}px) scale(${scale})`;
+      circleCache[i].left = left;
+      circleCache[i].top = top;
+      circleCache[i].scale = scale;
+      saveCacheToCookie(); // Save cache on every change
+    }
+
+    let dragging = false, sx, sy, sl, st;
+    img.onmousedown = e => { 
+      dragging = true; sx = e.clientX; sy = e.clientY; sl = left; st = top; 
+      img.style.cursor = "grabbing"; 
+      e.preventDefault(); e.stopPropagation(); 
+    };
+    window.addEventListener("mousemove", e => { 
+      if (!dragging) return; 
+      left = sl + (e.clientX - sx); 
+      top = st + (e.clientY - sy); 
+      clamp(); update(); 
+    });
+    window.addEventListener("mouseup", () => { dragging = false; img.style.cursor = "grab"; });
+    img.onwheel = e => { e.preventDefault(); scale = Math.min(3, Math.max(1, scale - e.deltaY * 0.001)); clamp(); update(); };
+
+    circle.prepend(img);
+  }
+}
+
+function selectCircle(i) {
+  circles.forEach(c => c.classList.remove("selected"));
+  selectedIndex = i;
+  circles[i].classList.add("selected");
+  renderCircle(i);
+}
+
+// Navigation buttons
+document.getElementById("prevImage").onclick = () => swapImages(selectedIndex - 1);
+document.getElementById("nextImage").onclick = () => swapImages(selectedIndex + 1);
+
+// Toggle titles
+document.getElementById("toggleTitles").onchange = e => {
+  circles.forEach(c => c.classList.toggle("show-title", e.target.checked));
+};
+
+// Search and place image
+let searchTimer;
+const type = document.getElementById("type");
+searchInput.oninput = e => {
+  clearTimeout(searchTimer);
+  const q = e.target.value.trim();
+  if (!q) return resultsEl.innerHTML = "";
+  searchTimer = setTimeout(async () => {
+    const data = await searchAniList(q, type.value);
+    resultsEl.innerHTML = "";
+    data.forEach(m => {
+      const r = document.createElement("div");
+      r.className = "result";
+      r.innerHTML = `<img src="${m.coverImage.large}"><div>${m.title.romaji}</div>`;
+      r.onclick = () => placeImage(m.coverImage.large, m.title.romaji);
+      resultsEl.appendChild(r);
+    });
+  }, 150);
+};
+
+async function searchAniList(query, type) {
+  const res = await fetch("https://graphql.anilist.co", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: `query ($search: String, $type: MediaType) { Page(perPage: 10) { media(search: $search, type: $type) { title { romaji } coverImage { large } } } }`,
+      variables: { search: query, type }
+    })
+  });
+  return (await res.json()).data.Page.media;
+}
+
+function placeImage(src, titleText) {
+  circleCache[selectedIndex].imgSrc = src;
+  circleCache[selectedIndex].title = titleText;
+  circleCache[selectedIndex].scale = 1;
+  circleCache[selectedIndex].left = 0;
+  circleCache[selectedIndex].top = 0;
+  renderCircle(selectedIndex);
+  saveCacheToCookie(); // Save when placing new image
+}
+// Download
+document.getElementById("download").onclick = async () => {
+  const canvas = await html2canvas(container, { 
+    backgroundColor: null,
+    useCORS: true
+  });
+  const a = document.createElement("a");
+  a.download = "anilist-circles.png";
+  a.href = canvas.toDataURL();
+  a.click();
+};
+loadCacheFromCookie();
+circles.forEach((c, i) => renderCircle(i));
+
+// Initial select
+selectCircle(0);
+</script>
+
+</body>
+</html>
